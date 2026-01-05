@@ -1,49 +1,56 @@
 import matplotlib.pyplot as plt
-from image_utils import load_image, edge_detection
-from skimage.filters import median
-from skimage.morphology import ball
 import numpy as np
 from PIL import Image
+from scipy.signal import convolve2d
+from skimage.filters import median
+from skimage.morphology import ball
 
-def main():
-    # 1. טעינת התמונה - וודאי שהעלית קובץ בשם my_image.png לגיטהאב!
-    # אם לתמונה שלך יש שם אחר, תשני את השם בגרשיים כאן למטה
-    input_path = "my_image.png" 
-    
-    try:
-        image = load_image(input_path)
-    except Exception as e:
-        print(f"Error: Could not find or load {input_path}")
-        return
+# --- פונקציות העזר (מה שביקשו ב-image_utils) ---
 
-    # 2. ניקוי רעשים בעזרת פילטר חציוני (כמו שביקשו בתרגיל)
-    clean_image = median(image, ball(3))
+def load_image(path):
+    img = Image.open(path)
+    return np.array(img)
 
-    # 3. הרצת פונקציית זיהוי הקצוות שכתבנו ב-image_utils
-    edge_mag = edge_detection(clean_image)
+def edge_detection(image):
+    # הפיכה לאפור
+    if len(image.shape) == 3:
+        gray_image = np.mean(image, axis=2)
+    else:
+        gray_image = image
 
-    # 4. הפיכה לבינארי (שחור-לבן מוחלט) לפי ערך סף
-    # חישוב סף אוטומטי לפי ממוצע העוצמה
-    threshold = np.mean(edge_mag) * 1.5
-    binary_output = edge_mag > threshold
+    # פילטרים לזיהוי קצוות
+    filter_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+    filter_y = np.array([[-1, -2, -1], [ 0,  0,  0], [ 1,  2,  1]])
 
-    # 5. הצגת התמונות (כדי שתוכלי לראות שהצליח לך)
-    plt.figure(figsize=(10, 5))
-    plt.subplot(1, 2, 1)
-    plt.title("Original Image")
-    plt.imshow(image)
-    plt.axis('off')
+    # קונבולוציה
+    edgeX = convolve2d(gray_image, filter_x, mode='same', boundary='fill', fillvalue=0)
+    edgeY = convolve2d(gray_image, filter_y, mode='same', boundary='fill', fillvalue=0)
 
-    plt.subplot(1, 2, 2)
-    plt.title("Edge Detection Result")
-    plt.imshow(binary_output, cmap='gray')
-    plt.axis('off')
-    plt.show()
+    # עוצמת קצוות
+    edgeMAG = np.sqrt(edgeX**2 + edgeY**2)
+    return edgeMAG
 
-    # 6. שמירת התוצאה כקובץ PNG
-    final_img = Image.fromarray((binary_output * 255).astype(np.uint8))
-    final_img.save("edge_result.png")
-    print("Success! 'edge_result.png' has been created.")
+# --- ההרצה עצמה ---
 
-if __name__ == "__main__":
-    main()
+# כאן את מקשרת את התמונה! ודאי שהשם בגרשיים זהה לשם הקובץ שהעלית בצד
+my_file_name = "my_image.png" 
+
+# 1. טעינה
+original_img = load_image(my_file_name)
+
+# 2. ניקוי רעשים
+clean_img = median(original_img, ball(3))
+
+# 3. זיהוי קצוות
+edges = edge_detection(clean_img)
+
+# 4. הפיכה לשחור לבן (בינארי)
+binary_edges = edges > (np.mean(edges) * 1.5)
+
+# 5. הצגת התוצאה
+plt.imshow(binary_edges, cmap='gray')
+plt.show()
+
+# 6. שמירת התמונה למחשב (כדי שתוכלי להעלות אותה לגיטהאב)
+final_result = Image.fromarray((binary_edges * 255).astype(np.uint8))
+final_result.save("edge_result.png")
